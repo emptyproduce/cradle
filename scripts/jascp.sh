@@ -67,6 +67,7 @@ main() {
     upload)   upload_file ;;
     '')       edit_cycle ;;
     *)        error "Unexpected mode: $mode" ;;
+  esac
 }
 
 main "$@"
