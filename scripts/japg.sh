@@ -9,46 +9,83 @@
 # Copyright (C) 2025, Jamie Albert
 # ---
 set -euo pipefail
-WORD_LIST='/usr/share/dict/japg.list'
-DEFAULT_WORDS=5
-DEFAULT_DELIM='-'
-error() { printf 'Error: %s\n' "$*" >&2; exit 1; }
-info()  { printf '%s\n' "$*"; }
+
+declare -gr WORD_LIST='/usr/share/dict/japg.list'
+declare -gr DEFAULT_DELIM='-'
+declare -gi DEFAULT_WORDS=5
 
 # ---
-# Description: Main routine.
-# Globals: WORD_LIST, DEFAULT_WORDS, DEFAULT_DELIM
+# @usage: error <exit_code> <message>
+# @description: Print an error message to stderr and exit with a specific code.
+# @arg: $1 - The exit code to use.
+# @arg: $* - The error message to print.
+# @return_code: [N] The specified exit code.
+# ---
+error() {
+  declare exit_code="$1"
+  shift
+  printf 'error: %s\n' "$*" >&2
+  exit "${exit_code}"
+}
+
+# ---
+# @description: Print an informational message to stdout.
+# @arg: $* - The message to print.
+# ---
+info() {
+  printf '%s\n' "$*"
+}
+
+# ---
+# @description: Perform initial setup checks.
+#              Verifies the word list file exists and xclip is installed.
+# @global: WORD_LIST - Path to the word list file.
+# @return_code: [2] Word-list file not found.
+# @return_code: [3] Required tool 'xclip' not found.
+# ---
+setup() {
+  [[ -f "${WORD_LIST}" ]] || error 2 "Word-list not found: $WORD_LIST"
+  command -v xclip >/dev/null || error 3 "xclip not found (install xclip)"
+}
+
+# ---
+# @description: Main routine to generate and copy the passphrase.
+# @arg: $1 - Number of words (optional, defaults to DEFAULT_WORDS).
+# @arg: $2 - Delimiter (optional, defaults to DEFAULT_DELIM).
+# @global: WORD_LIST - Path to the word list file.
+# @global: DEFAULT_WORDS - Default number of words.
+# @global: DEFAULT_DELIM - Default delimiter.
+# @return_code: [1] General error (inherits from set -e).
+# @return_code: [4] Invalid number of words provided.
+# @return_code: [2] Word-list not found (inherited from setup).
+# @return_code: [3] xclip not found (inherited from setup).
 # ---
 main() {
-    local num_words=${1:-$DEFAULT_WORDS}
-    local delim=${2:-$DEFAULT_DELIM}
+  setup
 
-    [[ "$num_words" =~ ^[1-9][0-9]*$ ]] || error "num_words must be a positive integer"
-    [[ -f "$WORD_LIST" ]]              || error "Word-list not found: $WORD_LIST"
-    command -v xclip >/dev/null        || error "xclip not found (install xclip)"
+  declare num_words="${1:-$DEFAULT_WORDS}"
+  declare delim="${2:-$DEFAULT_DELIM}"
 
-    # 1. Pick words
-    local -a words
-    mapfile -t words < <(shuf -n "$num_words" "$WORD_LIST")
+  [[ "${num_words}" =~ ^[1-9][0-9]*$ ]] || error 4 "num_words must be a positive integer"
 
-    # 2. Capitalise every word
-    local i
-    for i in "${!words[@]}"; do
-        words[i]=$(printf '%s' "${words[i]}" | sed 's/^\(.\)/\U\1/')
-    done
+  declare -a words
+  mapfile -t words < <(shuf -n "$num_words" "$WORD_LIST") || error 1 "Failed to read words from list"
 
-    # 3. Append digit to one random word
-    local dig_idx=$(( RANDOM % num_words ))
-    words[dig_idx]+=$(( RANDOM % 10 ))
+  declare i
+  for i in "${!words[@]}"; do
+    words[i]="${words[i]^}"
+  done
 
-    # 4. Join with delimiter
-    local pass
-    pass=$(IFS="$delim"; printf '%s' "${words[*]}")
+  declare dig_idx=$(( RANDOM % num_words ))
+  words[dig_idx]+=$(( RANDOM % 10 ))
 
-    # 5. Copy and report
-    printf '%s' "$pass" | xclip -selection clipboard
-    info "Generated password: $pass"
-    info "Password copied to clipboard."
+  declare pass
+  IFS="$delim"
+  printf -v pass '%s' "${words[*]}" || error 1 "Failed to construct passphrase"
+
+  printf '%s' "$pass" | xclip -selection clipboard || error 1 "Failed to copy passphrase to clipboard"
+  info "Generated password: $pass"
+  info "Password copied to clipboard."
 }
 
 main "$@"
