@@ -43,7 +43,7 @@ info() {
 # ---
 setup() {
   command -v sudo >/dev/null || error 2 "sudo not found"
-  sudo command -v dnf >/dev/null || error 3 "dnf not found (script requires a DNF-based system)"
+  sudo sh -c 'command -v dnf >/dev/null' || error 3 "dnf not found (script requires a DNF-based system)"
 }
 
 # ---
