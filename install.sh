@@ -16,7 +16,7 @@ declare -gr INSTALL_DIR="/usr/local/bin"
 declare -gr SCRIPTS_DIR="scripts"
 declare -gr CONFIG_DIR="config"
 declare -gr DICT_DIR="dict"
-declare -ga TOOLS=("japg.sh" "jade.sh" "jau.sh")
+declare -ga TOOLS=("japg.sh" "jade.sh" "jau.sh" "jarm.sh")
 declare -gr JADE_CONFIG_DIR="/usr/local/etc/jade.sh"
 
 # ---
